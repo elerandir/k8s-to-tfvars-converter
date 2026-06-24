@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: app
+          image: example/app:1.0
+          env:
+            - name: LOG_LEVEL
+              value: info
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: database_url
+            - name: API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: api_token
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+              prefix: SECRET_
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  database_url: postgres://db:5432/app
+  feature_flags: "a,b,c"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+type: Opaque
+data:
+  # base64 of "s3cr3t-token"
+  api_token: czNjcjN0LXRva2Vu
+stringData:
+  smtp_password: hunter2
