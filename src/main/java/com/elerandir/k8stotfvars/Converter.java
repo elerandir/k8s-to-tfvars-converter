@@ -43,7 +43,7 @@ public final class Converter {
         List<String> warnings = new ArrayList<>();
         Consumer<String> warn = warnings::add;
 
-        ResourceRegistry registry = ResourceRegistry.from(resources, warn);
+        ResourceRegistry registry = ResourceRegistry.from(resources);
         List<EnvVar> envVars = new EnvVarExtractor(registry, extractorOptions, warn).extract(resources);
         String tfvars = new TfvarsWriter(header).render(envVars);
         return new Result(tfvars, envVars, warnings);

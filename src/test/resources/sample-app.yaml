@@ -10,13 +10,15 @@ spec:
         - name: app
           image: example/app:1.0
           env:
+            # how chatty the logs are
             - name: LOG_LEVEL
               value: info
-            - name: DATABASE_URL
+            - name: DATABASE_URL # primary database
               valueFrom:
                 configMapKeyRef:
                   name: app-config
                   key: database_url
+            # token for the upstream API
             - name: API_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -39,6 +41,7 @@ metadata:
   name: app-config
 data:
   database_url: postgres://db:5432/app
+  # comma-separated feature toggles
   feature_flags: "a,b,c"
 ---
 apiVersion: v1
@@ -47,7 +50,7 @@ metadata:
   name: app-secrets
 type: Opaque
 data:
-  # base64 of "s3cr3t-token"
   api_token: czNjcjN0LXRva2Vu
 stringData:
+  # used by the mailer
   smtp_password: hunter2

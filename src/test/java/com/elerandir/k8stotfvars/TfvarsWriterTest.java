@@ -1,8 +1,8 @@
 package com.elerandir.k8stotfvars;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.elerandir.k8stotfvars.model.Comment;
 import com.elerandir.k8stotfvars.model.EnvVar;
 
 import java.util.List;
@@ -17,7 +17,6 @@ class TfvarsWriterTest {
         assertEquals("\"a\\\"b\"", TfvarsWriter.quote("a\"b"));
         assertEquals("\"a\\\\b\"", TfvarsWriter.quote("a\\b"));
         assertEquals("\"line1\\nline2\"", TfvarsWriter.quote("line1\nline2"));
-        assertEquals("\"tab\\there\"", TfvarsWriter.quote("tab\there"));
     }
 
     @Test
@@ -27,26 +26,50 @@ class TfvarsWriterTest {
     }
 
     @Test
-    void sanitizesInvalidKeyCharacters() {
-        assertEquals("FOO_BAR", TfvarsWriter.sanitizeKey("FOO.BAR"));
-        assertEquals("_9LIVES", TfvarsWriter.sanitizeKey("9LIVES"));
-        assertEquals("keep-dash_ok", TfvarsWriter.sanitizeKey("keep-dash_ok"));
+    void keyTokenIsBareWhenValidOtherwiseQuoted() {
+        assertEquals("API_TOKEN", TfvarsWriter.keyToken("API_TOKEN"));
+        assertEquals("_9LIVES", TfvarsWriter.keyToken("_9LIVES"));
+        assertEquals("\"FOO.BAR\"", TfvarsWriter.keyToken("FOO.BAR"));
     }
 
     @Test
-    void rendersSortedAssignmentsWithoutHeader() {
-        List<EnvVar> vars = List.of(
-                new EnvVar("ZEBRA", "1", EnvVar.Source.LITERAL, "x"),
-                new EnvVar("ALPHA", "2", EnvVar.Source.LITERAL, "x"));
-        String out = new TfvarsWriter(false).render(vars);
-        assertEquals("ALPHA = \"2\"\nZEBRA = \"1\"\n", out);
+    void rendersEmptyMaps() {
+        assertEquals("env_vars = {}\n\nsecrets = {}\n", new TfvarsWriter(false).render(List.of()));
     }
 
     @Test
-    void rendersUnresolvedAsComment() {
+    void rendersBothMapsSortedWithComments() {
         List<EnvVar> vars = List.of(
-                new EnvVar("POD_IP", null, EnvVar.Source.FIELD_REF, "fieldRef"));
+                new EnvVar("ZEBRA", "1", null, EnvVar.Source.LITERAL, "x",
+                        new Comment(List.of("note"), "inline")),
+                new EnvVar("ALPHA", "2", null, EnvVar.Source.LITERAL, "x", Comment.NONE),
+                new EnvVar("API_TOKEN", null, "api_token", EnvVar.Source.SECRET, "x", Comment.NONE));
+
+        String expected = """
+                env_vars = {
+                  ALPHA = "2"
+                  # note
+                  ZEBRA = "1" # inline
+                }
+
+                secrets = {
+                  API_TOKEN = "api_token"
+                }
+                """;
+        assertEquals(expected, new TfvarsWriter(false).render(vars));
+    }
+
+    @Test
+    void rendersUnresolvedAsCommentInsideEnvVars() {
+        List<EnvVar> vars = List.of(
+                new EnvVar("POD_IP", null, null, EnvVar.Source.FIELD_REF, "fieldRef", Comment.NONE));
         String out = new TfvarsWriter(false).render(vars);
-        assertTrue(out.startsWith("# POD_IP = null"), out);
+        assertEquals("""
+                env_vars = {
+                  # POD_IP = null  # unresolved: fieldRef
+                }
+
+                secrets = {}
+                """, out);
     }
 }

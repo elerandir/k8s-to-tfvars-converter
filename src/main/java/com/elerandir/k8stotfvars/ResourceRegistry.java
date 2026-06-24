@@ -1,34 +1,37 @@
 package com.elerandir.k8stotfvars;
 
+import com.elerandir.k8stotfvars.model.Comment;
 import com.elerandir.k8stotfvars.model.K8sResource;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
+
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.NodeTuple;
+import org.yaml.snakeyaml.nodes.ScalarNode;
 
 /**
- * Indexes ConfigMap and Secret resources by name so that env var references can
- * be resolved to concrete key/value data.
+ * Indexes ConfigMap and Secret resources by name.
+ *
+ * <p>ConfigMap data is captured as resolvable key/value pairs. Secret data is
+ * captured by <em>key only</em> — values are deliberately not resolved, since
+ * they are looked up elsewhere. Per-key comments are retained for both.
  */
 public final class ResourceRegistry {
 
-    private final Map<String, Map<String, String>> configMaps = new LinkedHashMap<>();
-    private final Map<String, Map<String, String>> secrets = new LinkedHashMap<>();
+    /** A ConfigMap entry: its resolved value plus any comment near it. */
+    public record ConfigEntry(String value, Comment comment) {
+    }
+
+    private final Map<String, Map<String, ConfigEntry>> configMaps = new LinkedHashMap<>();
+    private final Map<String, Map<String, Comment>> secrets = new LinkedHashMap<>();
 
     private ResourceRegistry() {
     }
 
-    /**
-     * Build a registry from parsed resources.
-     *
-     * @param resources all parsed resources
-     * @param warn      sink for non-fatal diagnostics (e.g. undecodable secret data)
-     */
-    public static ResourceRegistry from(List<K8sResource> resources, Consumer<String> warn) {
+    public static ResourceRegistry from(List<K8sResource> resources) {
         ResourceRegistry registry = new ResourceRegistry();
         for (K8sResource resource : resources) {
             if (resource.name() == null) {
@@ -37,75 +40,71 @@ public final class ResourceRegistry {
             if (resource.hasKind("ConfigMap")) {
                 registry.configMaps.put(resource.name(), configMapData(resource));
             } else if (resource.hasKind("Secret")) {
-                registry.secrets.put(resource.name(), secretData(resource, warn));
+                registry.secrets.put(resource.name(), secretKeys(resource));
             }
         }
         return registry;
     }
 
-    /** Look up a single key in a named ConfigMap. */
     public Optional<String> configMapValue(String name, String key) {
-        return lookup(configMaps, name, key);
+        return configMapEntry(name, key).map(ConfigEntry::value);
     }
 
-    /** Look up a single key in a named Secret. */
-    public Optional<String> secretValue(String name, String key) {
-        return lookup(secrets, name, key);
+    public Comment configMapComment(String name, String key) {
+        return configMapEntry(name, key).map(ConfigEntry::comment).orElse(Comment.NONE);
     }
 
-    /** All key/value pairs of a named ConfigMap, in declaration order. */
-    public Optional<Map<String, String>> configMap(String name) {
+    /** All entries of a named ConfigMap, in declaration order. */
+    public Optional<Map<String, ConfigEntry>> configMap(String name) {
         return Optional.ofNullable(configMaps.get(name));
     }
 
-    /** All key/value pairs of a named Secret, in declaration order. */
-    public Optional<Map<String, String>> secret(String name) {
+    public Comment secretComment(String name, String key) {
+        Map<String, Comment> data = secrets.get(name);
+        return data == null ? Comment.NONE : data.getOrDefault(key, Comment.NONE);
+    }
+
+    /** All keys (with comments) of a named Secret, in declaration order. */
+    public Optional<Map<String, Comment>> secret(String name) {
         return Optional.ofNullable(secrets.get(name));
     }
 
-    private static Optional<String> lookup(Map<String, Map<String, String>> index, String name, String key) {
-        Map<String, String> data = index.get(name);
-        if (data == null) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(data.get(key));
+    private Optional<ConfigEntry> configMapEntry(String name, String key) {
+        Map<String, ConfigEntry> data = configMaps.get(name);
+        return data == null ? Optional.empty() : Optional.ofNullable(data.get(key));
     }
 
-    private static Map<String, String> configMapData(K8sResource resource) {
-        Map<String, String> data = new LinkedHashMap<>();
-        Map<String, Object> raw = Yaml.digMap(resource.raw(), "data");
-        if (raw != null) {
-            raw.forEach((k, v) -> data.put(k, Yaml.scalar(v)));
+    private static Map<String, ConfigEntry> configMapData(K8sResource resource) {
+        Map<String, ConfigEntry> data = new LinkedHashMap<>();
+        MappingNode dataNode = NodeYaml.getMapping(resource.node(), "data");
+        if (dataNode != null) {
+            for (NodeTuple tuple : dataNode.getValue()) {
+                if (tuple.getKeyNode() instanceof ScalarNode key) {
+                    data.put(key.getValue(),
+                            new ConfigEntry(NodeYaml.scalar(tuple.getValueNode()),
+                                    NodeYaml.commentForTuple(tuple)));
+                }
+            }
         }
         return data;
     }
 
-    private static Map<String, String> secretData(K8sResource resource, Consumer<String> warn) {
-        Map<String, String> data = new LinkedHashMap<>();
-        // base64-encoded `data`
-        Map<String, Object> encoded = Yaml.digMap(resource.raw(), "data");
-        if (encoded != null) {
-            encoded.forEach((k, v) -> data.put(k, decodeBase64(Yaml.scalar(v), resource.name(), k, warn)));
-        }
-        // plaintext `stringData` takes precedence over `data` for the same key,
-        // matching Kubernetes semantics.
-        Map<String, Object> plain = Yaml.digMap(resource.raw(), "stringData");
-        if (plain != null) {
-            plain.forEach((k, v) -> data.put(k, Yaml.scalar(v)));
-        }
-        return data;
+    private static Map<String, Comment> secretKeys(K8sResource resource) {
+        Map<String, Comment> keys = new LinkedHashMap<>();
+        // Both `data` and `stringData` contribute key names; values are ignored.
+        collectKeys(NodeYaml.getMapping(resource.node(), "data"), keys);
+        collectKeys(NodeYaml.getMapping(resource.node(), "stringData"), keys);
+        return keys;
     }
 
-    private static String decodeBase64(String value, String secretName, String key, Consumer<String> warn) {
-        if (value == null) {
-            return null;
+    private static void collectKeys(MappingNode mapping, Map<String, Comment> out) {
+        if (mapping == null) {
+            return;
         }
-        try {
-            return new String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8);
-        } catch (IllegalArgumentException e) {
-            warn.accept("Secret '" + secretName + "' key '" + key
-                    + "' is not valid base64; using the raw value verbatim.");
-            return value;
+        for (NodeTuple tuple : mapping.getValue()) {
+            if (tuple.getKeyNode() instanceof ScalarNode key) {
+                out.put(key.getValue(), NodeYaml.commentForTuple(tuple));
+            }
         }
     }
 }

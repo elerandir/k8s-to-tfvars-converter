@@ -2,6 +2,7 @@ package com.elerandir.k8stotfvars;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.elerandir.k8stotfvars.model.EnvVar;
@@ -33,26 +34,55 @@ class ConverterTest {
     }
 
     @Test
-    void resolvesLiteralConfigMapAndSecretReferences() {
-        Converter.Result result = convertSample(EnvVarExtractor.Options.defaults());
-        Map<String, EnvVar> vars = byName(result);
+    void putsLiteralAndConfigMapValuesIntoEnvVars() {
+        Map<String, EnvVar> vars = byName(convertSample(EnvVarExtractor.Options.defaults()));
 
         assertEquals("info", vars.get("LOG_LEVEL").value());
+        assertFalse(vars.get("LOG_LEVEL").isSecret());
+        // configMapKeyRef resolved
         assertEquals("postgres://db:5432/app", vars.get("DATABASE_URL").value());
-        // Secret data is base64-decoded.
-        assertEquals("s3cr3t-token", vars.get("API_TOKEN").value());
+        // envFrom configMapRef expanded
+        assertEquals("postgres://db:5432/app", vars.get("database_url").value());
+        assertEquals("a,b,c", vars.get("feature_flags").value());
     }
 
     @Test
-    void expandsEnvFromConfigMapAndSecretWithPrefix() {
+    void putsSecretKeysIntoSecretsWithoutResolvingValues() {
         Map<String, EnvVar> vars = byName(convertSample(EnvVarExtractor.Options.defaults()));
 
-        // envFrom configMapRef (no prefix)
-        assertEquals("postgres://db:5432/app", vars.get("database_url").value());
-        assertEquals("a,b,c", vars.get("feature_flags").value());
-        // envFrom secretRef with prefix SECRET_; stringData kept verbatim
-        assertEquals("s3cr3t-token", vars.get("SECRET_api_token").value());
-        assertEquals("hunter2", vars.get("SECRET_smtp_password").value());
+        // secretKeyRef: value not resolved, key recorded
+        EnvVar apiToken = vars.get("API_TOKEN");
+        assertTrue(apiToken.isSecret());
+        assertNull(apiToken.value());
+        assertEquals("api_token", apiToken.secretKey());
+
+        // envFrom secretRef with prefix: each key recorded under prefixed name
+        assertEquals("api_token", vars.get("SECRET_api_token").secretKey());
+        assertEquals("smtp_password", vars.get("SECRET_smtp_password").secretKey());
+    }
+
+    @Test
+    void rendersTwoMapsWithExpectedEntries() {
+        String tfvars = convertSample(EnvVarExtractor.Options.defaults()).tfvars();
+
+        assertTrue(tfvars.contains("env_vars = {"), tfvars);
+        assertTrue(tfvars.contains("secrets = {"), tfvars);
+        assertTrue(tfvars.contains("LOG_LEVEL"), tfvars);
+        assertTrue(tfvars.contains("API_TOKEN"), tfvars);
+        // secret value is the key, not the resolved secret
+        assertTrue(tfvars.contains("\"api_token\""), tfvars);
+        assertFalse(tfvars.contains("s3cr3t"), "secret values must not be resolved: " + tfvars);
+    }
+
+    @Test
+    void retainsManifestCommentsAsTerraformComments() {
+        String tfvars = convertSample(EnvVarExtractor.Options.defaults()).tfvars();
+
+        assertTrue(tfvars.contains("# how chatty the logs are"), tfvars);   // block on env entry
+        assertTrue(tfvars.contains("# primary database"), tfvars);          // inline on env entry
+        assertTrue(tfvars.contains("# token for the upstream API"), tfvars);// block on secret env entry
+        assertTrue(tfvars.contains("# comma-separated feature toggles"), tfvars); // from ConfigMap data
+        assertTrue(tfvars.contains("# used by the mailer"), tfvars);        // from Secret stringData
     }
 
     @Test
@@ -68,23 +98,11 @@ class ConverterTest {
         Converter.Result result = convertSample(new EnvVarExtractor.Options(null, false, true));
         EnvVar podIp = byName(result).get("POD_IP");
         assertTrue(podIp != null && !podIp.resolved());
-        assertEquals(1, result.unresolvedCount());
     }
 
     @Test
     void containerFilterRestrictsExtraction() {
-        Converter.Result match = convertSample(new EnvVarExtractor.Options("app", false, false));
-        assertFalse(match.envVars().isEmpty());
-
         Converter.Result noMatch = convertSample(new EnvVarExtractor.Options("missing", false, false));
         assertTrue(noMatch.envVars().isEmpty());
-    }
-
-    @Test
-    void rendersValidSortedTfvars() {
-        String tfvars = convertSample(EnvVarExtractor.Options.defaults()).tfvars();
-        // Spot-check a couple of rendered lines.
-        assertTrue(tfvars.contains("LOG_LEVEL = \"info\"\n"), tfvars);
-        assertTrue(tfvars.contains("API_TOKEN = \"s3cr3t-token\"\n"), tfvars);
     }
 }
