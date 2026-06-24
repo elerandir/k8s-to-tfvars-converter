@@ -26,9 +26,8 @@ class TfvarsWriterTest {
     }
 
     @Test
-    void keyTokenIsBareWhenValidOtherwiseQuoted() {
-        assertEquals("API_TOKEN", TfvarsWriter.keyToken("API_TOKEN"));
-        assertEquals("_9LIVES", TfvarsWriter.keyToken("_9LIVES"));
+    void keyTokenIsAlwaysQuoted() {
+        assertEquals("\"API_TOKEN\"", TfvarsWriter.keyToken("API_TOKEN"));
         assertEquals("\"FOO.BAR\"", TfvarsWriter.keyToken("FOO.BAR"));
     }
 
@@ -38,7 +37,7 @@ class TfvarsWriterTest {
     }
 
     @Test
-    void rendersBothMapsSortedWithComments() {
+    void rendersBothMapsSortedWithQuotedKeysAndComments() {
         List<EnvVar> vars = List.of(
                 new EnvVar("ZEBRA", "1", null, EnvVar.Source.LITERAL, "x",
                         new Comment(List.of("note"), "inline")),
@@ -47,13 +46,13 @@ class TfvarsWriterTest {
 
         String expected = """
                 env_vars = {
-                  ALPHA = "2"
+                  "ALPHA" = "2"
                   # note
-                  ZEBRA = "1" # inline
+                  "ZEBRA" = "1" # inline
                 }
 
                 secrets = {
-                  API_TOKEN = "api_token"
+                  "API_TOKEN" = "api_token"
                 }
                 """;
         assertEquals(expected, new TfvarsWriter(false).render(vars));
@@ -66,7 +65,7 @@ class TfvarsWriterTest {
         String out = new TfvarsWriter(false).render(vars);
         assertEquals("""
                 env_vars = {
-                  # POD_IP = null  # unresolved: fieldRef
+                  # "POD_IP" = null  # unresolved: fieldRef
                 }
 
                 secrets = {}

@@ -39,50 +39,64 @@ class ConverterTest {
 
         assertEquals("info", vars.get("LOG_LEVEL").value());
         assertFalse(vars.get("LOG_LEVEL").isSecret());
-        // configMapKeyRef resolved
+        // configMapKeyRef resolved to the ConfigMap value
         assertEquals("postgres://db:5432/app", vars.get("DATABASE_URL").value());
-        // envFrom configMapRef expanded
-        assertEquals("postgres://db:5432/app", vars.get("database_url").value());
-        assertEquals("a,b,c", vars.get("feature_flags").value());
+        assertEquals("a,b,c", vars.get("FEATURE_FLAGS").value());
     }
 
     @Test
     void putsSecretKeysIntoSecretsWithoutResolvingValues() {
-        Map<String, EnvVar> vars = byName(convertSample(EnvVarExtractor.Options.defaults()));
-
-        // secretKeyRef: value not resolved, key recorded
-        EnvVar apiToken = vars.get("API_TOKEN");
+        EnvVar apiToken = byName(convertSample(EnvVarExtractor.Options.defaults())).get("API_TOKEN");
         assertTrue(apiToken.isSecret());
         assertNull(apiToken.value());
         assertEquals("api_token", apiToken.secretKey());
-
-        // envFrom secretRef with prefix: each key recorded under prefixed name
-        assertEquals("api_token", vars.get("SECRET_api_token").secretKey());
-        assertEquals("smtp_password", vars.get("SECRET_smtp_password").secretKey());
     }
 
     @Test
-    void rendersTwoMapsWithExpectedEntries() {
+    void excludesConfigMapEntriesNotReferencedByTheDeployment() {
+        Map<String, EnvVar> vars = byName(convertSample(EnvVarExtractor.Options.defaults()));
+
+        // unused_key exists in the ConfigMap but is never referenced -> excluded
+        assertFalse(vars.containsKey("unused_key"));
+        // envFrom bulk imports are skipped, so the lowercase keys and SECRET_* prefixed
+        // keys do not appear; only explicitly referenced entries do.
+        assertFalse(vars.containsKey("database_url"));
+        assertFalse(vars.containsKey("feature_flags"));
+        assertFalse(vars.containsKey("SECRET_api_token"));
+        assertFalse(vars.containsKey("SECRET_smtp_password"));
+    }
+
+    @Test
+    void warnsThatEnvFromImportsAreSkipped() {
+        Converter.Result result = convertSample(EnvVarExtractor.Options.defaults());
+        assertTrue(result.warnings().stream().anyMatch(w -> w.contains("Skipping envFrom import of ConfigMap")),
+                result.warnings().toString());
+        assertTrue(result.warnings().stream().anyMatch(w -> w.contains("Skipping envFrom import of Secret")),
+                result.warnings().toString());
+    }
+
+    @Test
+    void rendersTwoMapsWithQuotedKeys() {
         String tfvars = convertSample(EnvVarExtractor.Options.defaults()).tfvars();
 
         assertTrue(tfvars.contains("env_vars = {"), tfvars);
         assertTrue(tfvars.contains("secrets = {"), tfvars);
-        assertTrue(tfvars.contains("LOG_LEVEL"), tfvars);
-        assertTrue(tfvars.contains("API_TOKEN"), tfvars);
-        // secret value is the key, not the resolved secret
-        assertTrue(tfvars.contains("\"api_token\""), tfvars);
+        // keys are quoted (alignment may pad spaces before '=')
+        assertTrue(tfvars.matches("(?s).*\"LOG_LEVEL\" +=  ?\"info\".*"), tfvars);
+        assertTrue(tfvars.contains("\"API_TOKEN\" = \"api_token\""), tfvars);
+        // secret value is the key, never the resolved secret
         assertFalse(tfvars.contains("s3cr3t"), "secret values must not be resolved: " + tfvars);
     }
 
     @Test
-    void retainsManifestCommentsAsTerraformComments() {
+    void retainsManifestComments() {
         String tfvars = convertSample(EnvVarExtractor.Options.defaults()).tfvars();
 
-        assertTrue(tfvars.contains("# how chatty the logs are"), tfvars);   // block on env entry
-        assertTrue(tfvars.contains("# primary database"), tfvars);          // inline on env entry
-        assertTrue(tfvars.contains("# token for the upstream API"), tfvars);// block on secret env entry
-        assertTrue(tfvars.contains("# comma-separated feature toggles"), tfvars); // from ConfigMap data
-        assertTrue(tfvars.contains("# used by the mailer"), tfvars);        // from Secret stringData
+        assertTrue(tfvars.contains("# how chatty the logs are"), tfvars);     // block on env entry
+        assertTrue(tfvars.contains("# primary database"), tfvars);            // inline on env entry
+        assertTrue(tfvars.contains("# token for the upstream API"), tfvars);  // block on secret env entry
+        // FEATURE_FLAGS has no comment on its env entry; falls back to the ConfigMap entry's comment
+        assertTrue(tfvars.contains("# comma-separated feature toggles"), tfvars);
     }
 
     @Test

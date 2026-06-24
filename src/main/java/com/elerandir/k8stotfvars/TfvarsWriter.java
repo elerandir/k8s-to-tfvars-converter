@@ -6,7 +6,6 @@ import com.elerandir.k8stotfvars.model.EnvVar;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 
 /**
  * Renders extracted env vars as a Terraform {@code .tfvars} file containing two
@@ -24,7 +23,6 @@ import java.util.regex.Pattern;
 public final class TfvarsWriter {
 
     private static final String INDENT = "  ";
-    private static final Pattern BARE_KEY = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
     private final boolean header;
 
@@ -94,9 +92,9 @@ public final class TfvarsWriter {
         }
     }
 
-    /** A map key, bare when it is a valid identifier, otherwise a quoted string. */
+    /** A map key, always rendered as a quoted string. */
     static String keyToken(String name) {
-        return BARE_KEY.matcher(name).matches() ? name : quote(name);
+        return quote(name);
     }
 
     /** Quote and escape a value as an HCL string literal. */

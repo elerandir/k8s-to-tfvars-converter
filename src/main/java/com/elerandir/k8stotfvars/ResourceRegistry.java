@@ -54,19 +54,9 @@ public final class ResourceRegistry {
         return configMapEntry(name, key).map(ConfigEntry::comment).orElse(Comment.NONE);
     }
 
-    /** All entries of a named ConfigMap, in declaration order. */
-    public Optional<Map<String, ConfigEntry>> configMap(String name) {
-        return Optional.ofNullable(configMaps.get(name));
-    }
-
     public Comment secretComment(String name, String key) {
         Map<String, Comment> data = secrets.get(name);
         return data == null ? Comment.NONE : data.getOrDefault(key, Comment.NONE);
-    }
-
-    /** All keys (with comments) of a named Secret, in declaration order. */
-    public Optional<Map<String, Comment>> secret(String name) {
-        return Optional.ofNullable(secrets.get(name));
     }
 
     private Optional<ConfigEntry> configMapEntry(String name, String key) {

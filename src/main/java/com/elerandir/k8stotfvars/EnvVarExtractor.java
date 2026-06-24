@@ -77,47 +77,31 @@ public final class EnvVarExtractor {
         }
         String origin = workloadLabel + " (container " + containerName + ")";
 
-        // Kubernetes applies envFrom first, then env (env overrides envFrom).
+        // envFrom imports an entire ConfigMap/Secret. By design we include only
+        // entries that are explicitly referenced, so envFrom imports are skipped.
         for (Node entry : NodeYaml.sequence(NodeYaml.get(container, "envFrom"))) {
-            extractEnvFrom(NodeYaml.asMapping(entry), merged);
+            skipEnvFrom(NodeYaml.asMapping(entry));
         }
         for (Node entry : NodeYaml.sequence(NodeYaml.get(container, "env"))) {
             extractEnv(NodeYaml.asMapping(entry), origin, merged);
         }
     }
 
-    private void extractEnvFrom(MappingNode entry, Map<String, EnvVar> merged) {
+    private void skipEnvFrom(MappingNode entry) {
         if (entry == null) {
             return;
         }
-        String prefix = Optional.ofNullable(NodeYaml.scalar(NodeYaml.get(entry, "prefix"))).orElse("");
-
         MappingNode configMapRef = NodeYaml.getMapping(entry, "configMapRef");
         if (configMapRef != null) {
-            String name = NodeYaml.scalar(NodeYaml.get(configMapRef, "name"));
-            boolean optional = NodeYaml.isTrue(NodeYaml.get(configMapRef, "optional"));
-            Optional<Map<String, ResourceRegistry.ConfigEntry>> data = registry.configMap(name);
-            if (data.isEmpty()) {
-                warnMissing("ConfigMap", name, optional, "envFrom");
-            } else {
-                data.get().forEach((key, e) -> put(merged,
-                        new EnvVar(prefix + key, e.value(), null, EnvVar.Source.CONFIG_MAP,
-                                "configMap/" + name, e.comment())));
-            }
+            warn.accept("Skipping envFrom import of ConfigMap '"
+                    + NodeYaml.scalar(NodeYaml.get(configMapRef, "name"))
+                    + "'; only explicitly referenced (configMapKeyRef) entries are included.");
         }
-
         MappingNode secretRef = NodeYaml.getMapping(entry, "secretRef");
         if (secretRef != null) {
-            String name = NodeYaml.scalar(NodeYaml.get(secretRef, "name"));
-            boolean optional = NodeYaml.isTrue(NodeYaml.get(secretRef, "optional"));
-            Optional<Map<String, Comment>> data = registry.secret(name);
-            if (data.isEmpty()) {
-                warnMissing("Secret", name, optional, "envFrom");
-            } else {
-                data.get().forEach((key, comment) -> put(merged,
-                        new EnvVar(prefix + key, null, key, EnvVar.Source.SECRET,
-                                "secret/" + name, comment)));
-            }
+            warn.accept("Skipping envFrom import of Secret '"
+                    + NodeYaml.scalar(NodeYaml.get(secretRef, "name"))
+                    + "'; only explicitly referenced (secretKeyRef) entries are included.");
         }
     }
 
@@ -211,12 +195,6 @@ public final class EnvVarExtractor {
         return a.source() == b.source()
                 && Objects.equals(a.value(), b.value())
                 && Objects.equals(a.secretKey(), b.secretKey());
-    }
-
-    private void warnMissing(String kind, String name, boolean optional, String via) {
-        warn.accept(via + " references " + kind + " '" + name
-                + "' which was not found in the input"
-                + (optional ? " (marked optional); skipping." : "; skipping."));
     }
 
     private List<Node> containers(MappingNode podSpec) {

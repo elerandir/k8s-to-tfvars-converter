@@ -6,16 +6,16 @@ file with two object maps:
 
 ```hcl
 env_vars = {
-  DATABASE_URL  = "postgres://db:5432/app" # primary database
+  "DATABASE_URL"  = "postgres://db:5432/app" # primary database
+  # comma-separated feature toggles
+  "FEATURE_FLAGS" = "a,b,c"
   # how chatty the logs are
-  LOG_LEVEL     = "info"
-  feature_flags = "a,b,c"
+  "LOG_LEVEL"     = "info"
 }
 
 secrets = {
   # token for the upstream API
-  API_TOKEN            = "api_token"
-  SECRET_smtp_password = "smtp_password"
+  "API_TOKEN" = "api_token"
 }
 ```
 
@@ -25,8 +25,14 @@ secrets = {
 - **`secrets`** holds Secret-backed variables. Their values are **not** resolved;
   each entry maps the variable name to the **key within the Secret**, which
   another part of the system uses to resolve the real value.
+- Both the variable names (keys) and their values are quoted strings.
 - Comments near a variable in the manifest are carried over as Terraform
   comments next to the matching entry.
+
+Only variables that the workload **explicitly references** are emitted. A
+ConfigMap or Secret entry that is not referenced by an `env` entry is left out,
+and bulk `envFrom` imports (which would pull in an entire ConfigMap/Secret) are
+skipped with a warning.
 
 ## What it handles
 
@@ -37,10 +43,9 @@ For every workload found in the input (`Deployment`, `StatefulSet`, `DaemonSet`,
 | --- | --- | --- |
 | `env[].value` | `env_vars` | Used verbatim. |
 | `env[].valueFrom.configMapKeyRef` | `env_vars` | Resolved from the named `ConfigMap`. |
-| `envFrom[].configMapRef` | `env_vars` | Expands every key of the `ConfigMap` (honouring `prefix`). |
 | `env[].valueFrom.secretKeyRef` | `secrets` | Records the Secret key; value not resolved. |
-| `envFrom[].secretRef` | `secrets` | Records every key of the `Secret` (honouring `prefix`); values not resolved. |
 | `env[].valueFrom.fieldRef` / `resourceFieldRef` | — | Only known at pod runtime; reported as unresolved. |
+| `envFrom[].configMapRef` / `secretRef` | — | Skipped (with a warning): a bulk import is not an explicit reference. |
 
 `env` entries override `envFrom` entries with the same name, matching Kubernetes
 semantics. Output keys are sorted for stable, diff-friendly files, and values are
@@ -51,10 +56,9 @@ escaped as HCL string literals (including Terraform `${...}`/`%{...}` sequences)
 Comments are captured from where each variable is defined:
 
 - a comment above or trailing an `env[]` entry attaches to that variable;
-- a comment on a `ConfigMap`/`Secret` `data` (or `stringData`) entry attaches to
-  the variable expanded from it via `envFrom`;
 - for a resolved `configMapKeyRef`/`secretKeyRef`, a comment on the `env[]` entry
-  takes precedence, falling back to the comment on the referenced data entry.
+  takes precedence, falling back to the comment on the referenced `ConfigMap`/`Secret`
+  `data` (or `stringData`) entry.
 
 ## Build
 
