@@ -33,4 +33,6 @@ replay_pid*
 
 # Local Kubernetes manifests used as converter input (do not commit real files)
 deployment.yml
+deployment.yaml
 configMap.yml
+configMap.yaml
