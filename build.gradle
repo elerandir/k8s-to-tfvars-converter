@@ -20,6 +20,9 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.34'
     annotationProcessor 'org.projectlombok:lombok:1.18.34'
 
+    implementation 'com.google.dagger:dagger:2.55'
+    annotationProcessor 'com.google.dagger:dagger-compiler:2.55'
+
     implementation 'org.yaml:snakeyaml:2.6'
     implementation 'info.picocli:picocli:4.7.7'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.7'

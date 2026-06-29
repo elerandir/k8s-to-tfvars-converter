@@ -5,7 +5,8 @@ import com.elerandir.k8stotfvars.model.Comment;
 import java.util.ArrayList;
 import java.util.List;
 
-import lombok.experimental.UtilityClass;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 import org.yaml.snakeyaml.comments.CommentLine;
 import org.yaml.snakeyaml.comments.CommentType;
@@ -20,9 +21,16 @@ import org.yaml.snakeyaml.nodes.SequenceNode;
  * comments attached to entries. Working at the node level (rather than the
  * plain {@code Map} produced by the default loader) is what lets the converter
  * preserve manifest comments.
+ *
+ * <p>Stateless, but injected as a singleton so collaborators receive it through
+ * the Dagger graph rather than reaching for static methods.
  */
-@UtilityClass
+@Singleton
 class NodeYaml {
+
+    @Inject
+    NodeYaml() {
+    }
 
     MappingNode asMapping(Node node) {
         return node instanceof MappingNode m ? m : null;
