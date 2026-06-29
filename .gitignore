@@ -30,3 +30,9 @@ build/
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Local Kubernetes manifests used as converter input (do not commit real files)
+[Dd]eployment.yml
+[Dd]eployment.yaml
+[Cc]onfig[Mm]ap.yml
+[Cc]onfig[Mm]ap.yaml
