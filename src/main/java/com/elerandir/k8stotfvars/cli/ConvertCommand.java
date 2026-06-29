@@ -4,9 +4,9 @@ import com.elerandir.k8stotfvars.Converter;
 import com.elerandir.k8stotfvars.EnvVarExtractor;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -109,7 +109,7 @@ public final class ConvertCommand implements Callable<Integer> {
             } else if (Files.isRegularFile(input)) {
                 files.add(input);
             } else {
-                throw new UncheckedIOException(new IOException("Path does not exist: " + input));
+                throw new NoSuchFileException(input.toString());
             }
         }
         return files.stream().distinct().toList();

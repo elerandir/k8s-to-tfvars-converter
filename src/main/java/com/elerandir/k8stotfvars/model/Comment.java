@@ -14,6 +14,11 @@ public record Comment(List<String> lines, String inline) {
 
     public static final Comment NONE = new Comment(List.of(), null);
 
+    /** Defensively copies {@code lines} so the comment is genuinely immutable. */
+    public Comment {
+        lines = List.copyOf(lines);
+    }
+
     public boolean isEmpty() {
         return lines.isEmpty() && inline == null;
     }

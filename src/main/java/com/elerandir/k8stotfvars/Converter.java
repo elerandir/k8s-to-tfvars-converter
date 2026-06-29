@@ -35,8 +35,8 @@ public final class Converter {
         return convert(ManifestParser.parseFiles(files));
     }
 
-    public Result convert(Reader reader, String sourceLabel) {
-        return convert(ManifestParser.parse(reader, sourceLabel));
+    public Result convert(Reader reader) {
+        return convert(ManifestParser.parse(reader));
     }
 
     public Result convert(List<K8sResource> resources) {

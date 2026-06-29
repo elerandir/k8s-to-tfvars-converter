@@ -22,7 +22,7 @@ class ConverterTest {
     private Converter.Result convertSample(EnvVarExtractor.Options options) {
         try (InputStream in = getClass().getResourceAsStream("/sample-app.yaml");
              Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-            return new Converter(options, false).convert(reader, "sample-app.yaml");
+            return new Converter(options, false).convert(reader);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
