@@ -270,6 +270,57 @@ class ConverterBehaviorTest {
     }
 
     @Nested
+    @DisplayName("when a ConfigMap shares the Deployment's file")
+    class ConfigMapInSameFile {
+
+        // The ConfigMap is a second `---` document in the SAME manifest as the
+        // Deployment, and is declared AFTER it. Resolution must still work: the
+        // registry is built from every document before extraction runs, so a
+        // co-located ConfigMap is indexed regardless of file or document order.
+        private static final String MANIFEST = """
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: web
+                spec:
+                  template:
+                    spec:
+                      containers:
+                        - name: app
+                          env:
+                            - name: DATABASE_URL
+                              valueFrom:
+                                configMapKeyRef:
+                                  name: cfg
+                                  key: db
+                ---
+                apiVersion: v1
+                kind: ConfigMap
+                metadata:
+                  name: cfg
+                data:
+                  db: postgres://db:5432/app
+                  unused: never-referenced
+                """;
+
+        @Test
+        @DisplayName("resolves a configMapKeyRef against the in-file ConfigMap")
+        void resolvesAgainstInFileConfigMap() {
+            Converter.Result result = convert(MANIFEST);
+            assertEquals("postgres://db:5432/app", envByName(result).get("DATABASE_URL").value());
+            assertFalse(warnedAbout(result, "not found in the input"));
+        }
+
+        @Test
+        @DisplayName("still skips the in-file ConfigMap's unreferenced entries silently")
+        void unreferencedEntriesStaySilent() {
+            Converter.Result result = convert(MANIFEST);
+            assertFalse(envByName(result).containsKey("unused"));
+            assertTrue(result.warnings().isEmpty(), result.warnings().toString());
+        }
+    }
+
+    @Nested
     @DisplayName("when retaining manifest comments")
     class Comments {
 
