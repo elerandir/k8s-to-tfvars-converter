@@ -36,3 +36,5 @@ deployment.yml
 deployment.yaml
 configMap.yml
 configMap.yaml
+configmap.yml
+configmap.yaml
