@@ -47,9 +47,10 @@ For every workload found in the input (`Deployment`, `StatefulSet`, `DaemonSet`,
 | `env[].valueFrom.fieldRef` / `resourceFieldRef` | — | Only known at pod runtime; reported as unresolved. |
 | `envFrom[].configMapRef` / `secretRef` | — | Skipped (with a warning): a bulk import is not an explicit reference. |
 
-`env` entries override `envFrom` entries with the same name, matching Kubernetes
-semantics. Output keys are sorted for stable, diff-friendly files, and values are
-escaped as HCL string literals (including Terraform `${...}`/`%{...}` sequences).
+When the same variable name appears in more than one container, the last one
+wins (with a warning if the value differs). Output keys are sorted for stable,
+diff-friendly files, and values are escaped as HCL string literals (including
+Terraform `${...}`/`%{...}` sequences).
 
 ### Comment retention
 
@@ -62,8 +63,8 @@ Comments are captured from where each variable is defined:
 
 ## Build
 
-Requires a JDK (17+; built and tested with Java 21). Uses the Gradle wrapper, so
-no local Gradle install is needed.
+Requires JDK 21 (the build targets Java 21). Uses the Gradle wrapper, so no
+local Gradle install is needed.
 
 ```bash
 ./gradlew build          # compile + test

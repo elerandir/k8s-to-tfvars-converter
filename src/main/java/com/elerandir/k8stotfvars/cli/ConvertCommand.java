@@ -27,8 +27,9 @@ import picocli.CommandLine.Parameters;
         mixinStandardHelpOptions = true,
         version = "k8s-to-tfvars 0.1.0",
         description = "Extract container environment variables from Kubernetes manifests "
-                + "and emit a Terraform .tfvars file. ConfigMap and Secret references are "
-                + "resolved when the referenced resources are present in the input.")
+                + "into a Terraform .tfvars file with two maps: env_vars (literal and "
+                + "ConfigMap-resolved values) and secrets (Secret keys, values not resolved). "
+                + "Only explicitly referenced entries are included.")
 public final class ConvertCommand implements Callable<Integer> {
 
     @Parameters(arity = "1..*", paramLabel = "PATH",
