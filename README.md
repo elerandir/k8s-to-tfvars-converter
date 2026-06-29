@@ -37,10 +37,17 @@ secrets = {
 - Comments near a variable in the manifest are carried over as Terraform
   comments next to the matching entry.
 
-Only variables that the workload **explicitly references** are emitted. A
-ConfigMap or Secret entry that is not referenced by an `env` entry is left out,
-and bulk `envFrom` imports (which would pull in an entire ConfigMap/Secret) are
-skipped with a warning.
+Only variables that the workload **explicitly references** are emitted:
+
+- A ConfigMap or Secret entry that no `env` entry references is **left out
+  silently**. ConfigMaps often hold many keys that a given workload doesn't use,
+  so this is normal filtering, not a problem — no warning is produced.
+- A bulk `envFrom` import (which would pull in an *entire* ConfigMap/Secret) is
+  **skipped with a warning**. Unlike an unreferenced key, `envFrom` is an
+  explicit request to load every key as an env var, so skipping it means the
+  generated tfvars omit variables the running pod actually has — the warning
+  flags that gap. To include such a key, add an explicit `env` entry that
+  references it with a `configMapKeyRef`/`secretKeyRef`.
 
 ## What it handles
 
@@ -60,6 +67,22 @@ When the same variable name appears in more than one container, the last one
 wins (with a warning if the value differs). Output keys are sorted for stable,
 diff-friendly files, and values are escaped as HCL string literals (including
 Terraform `${...}`/`%{...}` sequences).
+
+### Where ConfigMaps and Secrets can live
+
+References are resolved against **everything in the input**, so the layout of
+the manifests doesn't matter:
+
+- a ConfigMap/Secret can sit in its **own file**, or as another `---` document
+  in the **same multi-document file** as the Deployment that uses it;
+- **order is irrelevant** — the referenced ConfigMap/Secret may appear before or
+  after the workload (the index is built from all documents before any reference
+  is resolved);
+- `kind: List` wrapper documents are flattened, so list-style manifests work too.
+
+A `configMapKeyRef` whose ConfigMap appears nowhere in the input stays
+unresolved and is reported (and, with `--include-unresolved`, emitted as a
+commented placeholder).
 
 ### Comment retention
 
