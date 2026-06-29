@@ -219,7 +219,7 @@ public final class EnvVarExtractor {
             return NodeYaml.digMapping(resource.node(), K8s.SPEC, K8s.TEMPLATE, K8s.SPEC);
         }
         if (resource.hasKind(K8s.KIND_CRON_JOB)) {
-            return NodeYaml.digMapping(resource.node(), K8s.SPEC, K8s.JOB_TEMPLATE, K8s.TEMPLATE, K8s.SPEC);
+            return NodeYaml.digMapping(resource.node(), K8s.SPEC, K8s.JOB_TEMPLATE, K8s.SPEC, K8s.TEMPLATE, K8s.SPEC);
         }
         return null;
     }
