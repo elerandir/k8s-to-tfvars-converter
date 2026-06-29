@@ -103,7 +103,8 @@ public final class EnvVarExtractor {
         if (ref != null) {
             warn.accept("Skipping envFrom import of " + kind + " '"
                     + nodeYaml.scalar(nodeYaml.get(ref, K8s.NAME))
-                    + "'; only explicitly referenced (" + explicitForm + ") entries are included.");
+                    + "': none of its keys are imported. To include a key, add an explicit env entry"
+                    + " that references it with a " + explicitForm + ".");
         }
     }
 
