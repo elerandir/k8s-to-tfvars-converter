@@ -95,3 +95,18 @@ local Gradle install is needed.
 | `-h, --help`, `-V, --version` | Help / version. |
 
 See `src/test/resources/sample-app.yaml` for a complete example input.
+
+## Security / supply chain
+
+- **Wrapper integrity:** `gradle-wrapper.properties` pins the Gradle distribution
+  by `distributionSha256Sum`, and CI runs `gradle/actions/wrapper-validation` to
+  check `gradle-wrapper.jar` against known-good release checksums.
+- **Dependency scanning:** `dependency-review` blocks pull requests that add
+  vulnerable or disallowed-license dependencies; Dependabot keeps Gradle deps and
+  GitHub Actions patched (`.github/dependabot.yml`).
+- **Static analysis:** CodeQL scans the Java source on every push/PR and weekly.
+- **Workflow permissions** are scoped to least privilege (`contents: read`, with
+  `security-events: write` only where CodeQL needs it).
+
+GitHub Actions are pinned to major version tags; for stricter hardening, pin them
+to full commit SHAs (Dependabot will continue to bump SHA-pinned actions).
