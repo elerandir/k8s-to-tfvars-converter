@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Fails the build if gradle-wrapper.jar does not match a known-good Gradle
       # release checksum — guards against a tampered wrapper executing code.
