@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
+      id-token: write # required to publish results to the OpenSSF API
     steps:
       - name: Harden the runner
         uses: step-security/harden-runner@v2
@@ -35,10 +36,9 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # Publishing requires a public repo and `id-token: write`. Leave off
-          # to stay compatible with private repos; flip to true (and add the
-          # id-token permission) for a public repo to get the Scorecard badge.
-          publish_results: false
+          # Publish results to the public OpenSSF API (this repo is public),
+          # which powers the Scorecard badge. Requires `id-token: write`.
+          publish_results: true
 
       - name: Upload SARIF artifact
         uses: actions/upload-artifact@v4

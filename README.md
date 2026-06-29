@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/codeql.yml)
-[![OpenSSF Scorecard](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/scorecard.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/scorecard.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/elerandir/k8s-to-tfvars-converter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/elerandir/k8s-to-tfvars-converter)
 [![Secret scan](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/gitleaks.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/gitleaks.yml)
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://adoptium.net/)
 [![Built with Gradle](https://img.shields.io/badge/Built%20with-Gradle-02303A.svg?logo=gradle)](https://gradle.org)
