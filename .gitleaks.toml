@@ -1,0 +1,23 @@
+# gitleaks configuration.
+#
+# Extends the default rule set and allowlists the fake secrets that appear in
+# test fixtures and documentation. This repository contains no real credentials;
+# Secret values are example/placeholder data used to exercise the converter
+# (which records Secret keys and never resolves their values).
+title = "k8s-to-tfvars-converter gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and example data contain only fake, non-sensitive secrets"
+# Test sources and resources are example data, not real credentials.
+paths = [
+  '''src/test/.*''',
+]
+# Belt-and-suspenders for the specific placeholder values, wherever they appear.
+regexes = [
+  '''czNjcjN0LXRva2Vu''', # base64 of the fake "s3cr3t-token"
+  '''s3cr3t-token''',
+  '''hunter2''',
+]
