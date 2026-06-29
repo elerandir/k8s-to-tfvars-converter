@@ -1,0 +1,52 @@
+# OpenSSF Scorecard: scores the repository's security posture (branch
+# protection, pinned dependencies, token permissions, etc.) and uploads
+# findings to code scanning.
+name: Scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: '21 5 * * 1'
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@v2
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishing requires a public repo and `id-token: write`. Leave off
+          # to stay compatible with private repos; flip to true (and add the
+          # id-token permission) for a public repo to get the Scorecard badge.
+          publish_results: false
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      - name: Upload to code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif

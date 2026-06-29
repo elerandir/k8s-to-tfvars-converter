@@ -1,5 +1,13 @@
 # k8s-to-tfvars-converter
 
+[![CI](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/scorecard.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/scorecard.yml)
+[![Secret scan](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/gitleaks.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/gitleaks.yml)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://adoptium.net/)
+[![Built with Gradle](https://img.shields.io/badge/Built%20with-Gradle-02303A.svg?logo=gradle)](https://gradle.org)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 A small Java CLI that extracts container environment variables from Kubernetes
 manifests and emits a Terraform [`.tfvars`](https://developer.hashicorp.com/terraform/language/values/variables#variable-definitions-tfvars-files)
 file with two object maps:
@@ -101,12 +109,34 @@ See `src/test/resources/sample-app.yaml` for a complete example input.
 - **Wrapper integrity:** `gradle-wrapper.properties` pins the Gradle distribution
   by `distributionSha256Sum`, and CI runs `gradle/actions/wrapper-validation` to
   check `gradle-wrapper.jar` against known-good release checksums.
+- **Dependency verification:** `gradle/verification-metadata.xml` records a SHA-256
+  for every dependency artifact, so the build fails if a downloaded jar/pom does
+  not match. Regenerate it when dependencies change (see below).
 - **Dependency scanning:** `dependency-review` blocks pull requests that add
   vulnerable or disallowed-license dependencies; Dependabot keeps Gradle deps and
   GitHub Actions patched (`.github/dependabot.yml`).
-- **Static analysis:** CodeQL scans the Java source on every push/PR and weekly.
+- **Static analysis:** CodeQL scans the Java source on every push/PR and weekly;
+  **OpenSSF Scorecard** scores the overall repository posture.
+- **Secret scanning:** gitleaks scans pull requests and the full git history.
+- **Runner hardening:** Harden-Runner audits CI runner egress; `CODEOWNERS`
+  routes required reviews.
 - **Workflow permissions** are scoped to least privilege (`contents: read`, with
-  `security-events: write` only where CodeQL needs it).
+  `security-events: write` only where SARIF upload needs it).
 
 GitHub Actions are pinned to major version tags; for stricter hardening, pin them
 to full commit SHAs (Dependabot will continue to bump SHA-pinned actions).
+
+### Updating dependency verification metadata
+
+When a dependency version changes (e.g. a Dependabot PR), regenerate the
+checksums and commit the result:
+
+```bash
+./gradlew --write-verification-metadata sha256 build
+```
+
+## License
+
+Copyright 2026 elerandir
+
+Licensed under the Apache License, Version 2.0 — see [LICENSE](LICENSE).
