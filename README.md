@@ -101,12 +101,28 @@ See `src/test/resources/sample-app.yaml` for a complete example input.
 - **Wrapper integrity:** `gradle-wrapper.properties` pins the Gradle distribution
   by `distributionSha256Sum`, and CI runs `gradle/actions/wrapper-validation` to
   check `gradle-wrapper.jar` against known-good release checksums.
+- **Dependency verification:** `gradle/verification-metadata.xml` records a SHA-256
+  for every dependency artifact, so the build fails if a downloaded jar/pom does
+  not match. Regenerate it when dependencies change (see below).
 - **Dependency scanning:** `dependency-review` blocks pull requests that add
   vulnerable or disallowed-license dependencies; Dependabot keeps Gradle deps and
   GitHub Actions patched (`.github/dependabot.yml`).
-- **Static analysis:** CodeQL scans the Java source on every push/PR and weekly.
+- **Static analysis:** CodeQL scans the Java source on every push/PR and weekly;
+  **OpenSSF Scorecard** scores the overall repository posture.
+- **Secret scanning:** gitleaks scans pull requests and the full git history.
+- **Runner hardening:** Harden-Runner audits CI runner egress; `CODEOWNERS`
+  routes required reviews.
 - **Workflow permissions** are scoped to least privilege (`contents: read`, with
-  `security-events: write` only where CodeQL needs it).
+  `security-events: write` only where SARIF upload needs it).
 
 GitHub Actions are pinned to major version tags; for stricter hardening, pin them
 to full commit SHAs (Dependabot will continue to bump SHA-pinned actions).
+
+### Updating dependency verification metadata
+
+When a dependency version changes (e.g. a Dependabot PR), regenerate the
+checksums and commit the result:
+
+```bash
+./gradlew --write-verification-metadata sha256 build
+```

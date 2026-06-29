@@ -13,6 +13,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Audit (and optionally block) outbound network from the runner, so a
+      # compromised dependency or action can't silently exfiltrate.
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@v7
 
       # Fails the build if gradle-wrapper.jar does not match a known-good Gradle
