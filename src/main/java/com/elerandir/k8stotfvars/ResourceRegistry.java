@@ -18,6 +18,10 @@ import org.yaml.snakeyaml.nodes.ScalarNode;
  * <p>ConfigMap data is captured as resolvable key/value pairs. Secret data is
  * captured by <em>key only</em> — values are deliberately not resolved, since
  * they are looked up elsewhere. Per-key comments are retained for both.
+ *
+ * <p>This is a per-conversion value object built from parsed resources, so it is
+ * created via {@link #from} rather than injected; the stateless {@link NodeYaml}
+ * collaborator is passed in.
  */
 public final class ResourceRegistry {
 
@@ -31,16 +35,16 @@ public final class ResourceRegistry {
     private ResourceRegistry() {
     }
 
-    public static ResourceRegistry from(List<K8sResource> resources) {
+    public static ResourceRegistry from(NodeYaml nodeYaml, List<K8sResource> resources) {
         ResourceRegistry registry = new ResourceRegistry();
         for (K8sResource resource : resources) {
             if (resource.name() == null) {
                 continue;
             }
             if (resource.hasKind(K8s.KIND_CONFIG_MAP)) {
-                registry.configMaps.put(resource.name(), configMapData(resource));
+                registry.configMaps.put(resource.name(), configMapData(nodeYaml, resource));
             } else if (resource.hasKind(K8s.KIND_SECRET)) {
-                registry.secrets.put(resource.name(), secretKeys(resource));
+                registry.secrets.put(resource.name(), secretKeys(nodeYaml, resource));
             }
         }
         return registry;
@@ -64,36 +68,36 @@ public final class ResourceRegistry {
         return data == null ? Optional.empty() : Optional.ofNullable(data.get(key));
     }
 
-    private static Map<String, ConfigEntry> configMapData(K8sResource resource) {
+    private static Map<String, ConfigEntry> configMapData(NodeYaml nodeYaml, K8sResource resource) {
         Map<String, ConfigEntry> data = new LinkedHashMap<>();
-        MappingNode dataNode = NodeYaml.getMapping(resource.node(), K8s.DATA);
+        MappingNode dataNode = nodeYaml.getMapping(resource.node(), K8s.DATA);
         if (dataNode != null) {
             for (NodeTuple tuple : dataNode.getValue()) {
                 if (tuple.getKeyNode() instanceof ScalarNode key) {
                     data.put(key.getValue(),
-                            new ConfigEntry(NodeYaml.scalar(tuple.getValueNode()),
-                                    NodeYaml.commentForTuple(tuple)));
+                            new ConfigEntry(nodeYaml.scalar(tuple.getValueNode()),
+                                    nodeYaml.commentForTuple(tuple)));
                 }
             }
         }
         return data;
     }
 
-    private static Map<String, Comment> secretKeys(K8sResource resource) {
+    private static Map<String, Comment> secretKeys(NodeYaml nodeYaml, K8sResource resource) {
         Map<String, Comment> keys = new LinkedHashMap<>();
         // Both `data` and `stringData` contribute key names; values are ignored.
-        collectKeys(NodeYaml.getMapping(resource.node(), K8s.DATA), keys);
-        collectKeys(NodeYaml.getMapping(resource.node(), K8s.STRING_DATA), keys);
+        collectKeys(nodeYaml, nodeYaml.getMapping(resource.node(), K8s.DATA), keys);
+        collectKeys(nodeYaml, nodeYaml.getMapping(resource.node(), K8s.STRING_DATA), keys);
         return keys;
     }
 
-    private static void collectKeys(MappingNode mapping, Map<String, Comment> out) {
+    private static void collectKeys(NodeYaml nodeYaml, MappingNode mapping, Map<String, Comment> out) {
         if (mapping == null) {
             return;
         }
         for (NodeTuple tuple : mapping.getValue()) {
             if (tuple.getKeyNode() instanceof ScalarNode key) {
-                out.put(key.getValue(), NodeYaml.commentForTuple(tuple));
+                out.put(key.getValue(), nodeYaml.commentForTuple(tuple));
             }
         }
     }

@@ -75,6 +75,14 @@ Comments are captured from where each variable is defined:
 Requires JDK 21 (the build targets Java 21). Uses the Gradle wrapper, so no
 local Gradle install is needed.
 
+The conversion object graph is wired with [Dagger](https://dagger.dev/)
+(compile-time DI, no reflection): `ConvertCommand` builds the
+`ConverterComponent` with the runtime `ConversionConfig` and pulls a fully
+assembled `Converter`. The project also uses [Lombok](https://projectlombok.org/)
+(compile-time only) for the remaining constructor/constant boilerplate. Both are
+annotation processors that Gradle runs automatically; for IDE editing, enable
+Lombok support (built in to IntelliJ; plugin/agent for Eclipse).
+
 ```bash
 ./gradlew build          # compile + test
 ./gradlew installDist    # produce a runnable distribution under build/install/
