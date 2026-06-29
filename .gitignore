@@ -32,9 +32,5 @@ hs_err_pid*
 replay_pid*
 
 # Local Kubernetes manifests used as converter input (do not commit real files)
-deployment.yml
-deployment.yaml
-configMap.yml
-configMap.yaml
-configmap.yml
-configmap.yaml
+[Dd]eployment.y*ml
+[Cc]onfig[Mm]ap.y*ml
