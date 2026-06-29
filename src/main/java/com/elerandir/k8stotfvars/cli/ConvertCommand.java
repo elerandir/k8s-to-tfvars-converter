@@ -1,6 +1,8 @@
 package com.elerandir.k8stotfvars.cli;
 
+import com.elerandir.k8stotfvars.ConversionConfig;
 import com.elerandir.k8stotfvars.Converter;
+import com.elerandir.k8stotfvars.DaggerConverterComponent;
 import com.elerandir.k8stotfvars.EnvVarExtractor;
 
 import java.io.IOException;
@@ -72,9 +74,10 @@ public final class ConvertCommand implements Callable<Integer> {
             return 2;
         }
 
-        EnvVarExtractor.Options options =
-                new EnvVarExtractor.Options(container, includeInitContainers, includeUnresolved);
-        Converter.Result result = new Converter(options, header).convertFiles(files);
+        ConversionConfig config = new ConversionConfig(
+                new EnvVarExtractor.Options(container, includeInitContainers, includeUnresolved), header);
+        Converter converter = DaggerConverterComponent.factory().create(config).converter();
+        Converter.Result result = converter.convertFiles(files);
 
         for (String warning : result.warnings()) {
             System.err.println("warning: " + warning);

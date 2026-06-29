@@ -36,11 +36,18 @@ class ConverterBehaviorTest {
     }
 
     private Converter.Result convert(String manifest, Options options) {
-        return new Converter(options, false).convert(new StringReader(manifest));
+        return converter(options, false).convert(new StringReader(manifest));
     }
 
     private Converter.Result convertWithHeader(String manifest) {
-        return new Converter(Options.defaults(), true).convert(new StringReader(manifest));
+        return converter(Options.defaults(), true).convert(new StringReader(manifest));
+    }
+
+    /** Build a fully wired Converter through the Dagger graph. */
+    private Converter converter(Options options, boolean header) {
+        return DaggerConverterComponent.factory()
+                .create(new ConversionConfig(options, header))
+                .converter();
     }
 
     private Map<String, EnvVar> envByName(Converter.Result result) {

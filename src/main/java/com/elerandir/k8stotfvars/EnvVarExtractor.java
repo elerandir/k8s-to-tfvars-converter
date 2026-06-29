@@ -12,6 +12,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import lombok.RequiredArgsConstructor;
+
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
 
@@ -19,7 +21,11 @@ import org.yaml.snakeyaml.nodes.Node;
  * Extracts environment variables from the containers of Kubernetes workload
  * resources, resolving ConfigMap references against a {@link ResourceRegistry}
  * and recording Secret references by key (without resolving their values).
+ *
+ * <p>A per-conversion worker: constructed with the injected {@link NodeYaml} plus
+ * the conversion's registry, options, and warning sink.
  */
+@RequiredArgsConstructor
 public final class EnvVarExtractor {
 
     /** Configuration for an extraction run. */
@@ -31,23 +37,12 @@ public final class EnvVarExtractor {
 
     /** A parsed {@code configMapKeyRef}/{@code secretKeyRef}: which resource, which key. */
     private record Ref(String name, String key, boolean optional) {
-        static Ref from(MappingNode node) {
-            return new Ref(
-                    NodeYaml.scalar(NodeYaml.get(node, K8s.NAME)),
-                    NodeYaml.scalar(NodeYaml.get(node, K8s.KEY)),
-                    NodeYaml.isTrue(NodeYaml.get(node, K8s.OPTIONAL)));
-        }
     }
 
+    private final NodeYaml nodeYaml;
     private final ResourceRegistry registry;
     private final Options options;
     private final Consumer<String> warn;
-
-    public EnvVarExtractor(ResourceRegistry registry, Options options, Consumer<String> warn) {
-        this.registry = registry;
-        this.options = options;
-        this.warn = warn;
-    }
 
     /**
      * Extract env vars from all workload resources, merged into a single ordered
@@ -65,7 +60,7 @@ public final class EnvVarExtractor {
             }
             workloads++;
             for (Node container : containers(podSpec)) {
-                extractContainer(NodeYaml.asMapping(container), workloadLabel(resource), merged);
+                extractContainer(nodeYaml.asMapping(container), workloadLabel(resource), merged);
             }
         }
         if (workloads == 0) {
@@ -79,7 +74,7 @@ public final class EnvVarExtractor {
         if (container == null) {
             return;
         }
-        String containerName = NodeYaml.scalar(NodeYaml.get(container, K8s.NAME));
+        String containerName = nodeYaml.scalar(nodeYaml.get(container, K8s.NAME));
         if (options.containerFilter() != null && !options.containerFilter().equals(containerName)) {
             return;
         }
@@ -87,11 +82,11 @@ public final class EnvVarExtractor {
 
         // envFrom imports an entire ConfigMap/Secret. By design we include only
         // entries that are explicitly referenced, so envFrom imports are skipped.
-        for (Node entry : NodeYaml.sequence(NodeYaml.get(container, K8s.ENV_FROM))) {
-            skipEnvFrom(NodeYaml.asMapping(entry));
+        for (Node entry : nodeYaml.sequence(nodeYaml.get(container, K8s.ENV_FROM))) {
+            skipEnvFrom(nodeYaml.asMapping(entry));
         }
-        for (Node entry : NodeYaml.sequence(NodeYaml.get(container, K8s.ENV))) {
-            extractEnv(NodeYaml.asMapping(entry), origin, merged);
+        for (Node entry : nodeYaml.sequence(nodeYaml.get(container, K8s.ENV))) {
+            extractEnv(nodeYaml.asMapping(entry), origin, merged);
         }
     }
 
@@ -104,10 +99,10 @@ public final class EnvVarExtractor {
     }
 
     private void warnSkippedEnvFrom(MappingNode entry, String refField, String kind, String explicitForm) {
-        MappingNode ref = NodeYaml.getMapping(entry, refField);
+        MappingNode ref = nodeYaml.getMapping(entry, refField);
         if (ref != null) {
             warn.accept("Skipping envFrom import of " + kind + " '"
-                    + NodeYaml.scalar(NodeYaml.get(ref, K8s.NAME))
+                    + nodeYaml.scalar(nodeYaml.get(ref, K8s.NAME))
                     + "'; only explicitly referenced (" + explicitForm + ") entries are included.");
         }
     }
@@ -116,40 +111,47 @@ public final class EnvVarExtractor {
         if (entry == null) {
             return;
         }
-        String name = NodeYaml.scalar(NodeYaml.get(entry, K8s.NAME));
+        String name = nodeYaml.scalar(nodeYaml.get(entry, K8s.NAME));
         if (name == null) {
             return;
         }
-        Comment comment = NodeYaml.commentForMappingEntry(entry, K8s.NAME);
+        Comment comment = nodeYaml.commentForMappingEntry(entry, K8s.NAME);
 
-        if (NodeYaml.hasKey(entry, K8s.VALUE)) {
-            put(merged, EnvVar.literal(name, NodeYaml.scalar(NodeYaml.get(entry, K8s.VALUE)), origin, comment));
+        if (nodeYaml.hasKey(entry, K8s.VALUE)) {
+            put(merged, EnvVar.literal(name, nodeYaml.scalar(nodeYaml.get(entry, K8s.VALUE)), origin, comment));
             return;
         }
 
-        MappingNode valueFrom = NodeYaml.getMapping(entry, K8s.VALUE_FROM);
+        MappingNode valueFrom = nodeYaml.getMapping(entry, K8s.VALUE_FROM);
         if (valueFrom == null) {
             // An env entry with neither value nor valueFrom resolves to "" in Kubernetes.
             put(merged, EnvVar.literal(name, "", origin, comment));
             return;
         }
 
-        MappingNode configMapKeyRef = NodeYaml.getMapping(valueFrom, K8s.CONFIG_MAP_KEY_REF);
+        MappingNode configMapKeyRef = nodeYaml.getMapping(valueFrom, K8s.CONFIG_MAP_KEY_REF);
         if (configMapKeyRef != null) {
-            resolveConfigMapKeyRef(name, Ref.from(configMapKeyRef), comment, merged);
+            resolveConfigMapKeyRef(name, readRef(configMapKeyRef), comment, merged);
             return;
         }
-        MappingNode secretKeyRef = NodeYaml.getMapping(valueFrom, K8s.SECRET_KEY_REF);
+        MappingNode secretKeyRef = nodeYaml.getMapping(valueFrom, K8s.SECRET_KEY_REF);
         if (secretKeyRef != null) {
-            resolveSecretKeyRef(name, Ref.from(secretKeyRef), comment, merged);
+            resolveSecretKeyRef(name, readRef(secretKeyRef), comment, merged);
             return;
         }
-        if (NodeYaml.hasKey(valueFrom, K8s.FIELD_REF)) {
+        if (nodeYaml.hasKey(valueFrom, K8s.FIELD_REF)) {
             putUnresolved(name, EnvVar.Source.FIELD_REF, "fieldRef (resolved at pod runtime)", comment, merged);
-        } else if (NodeYaml.hasKey(valueFrom, K8s.RESOURCE_FIELD_REF)) {
+        } else if (nodeYaml.hasKey(valueFrom, K8s.RESOURCE_FIELD_REF)) {
             putUnresolved(name, EnvVar.Source.RESOURCE_FIELD_REF, "resourceFieldRef (resolved at pod runtime)",
                     comment, merged);
         }
+    }
+
+    private Ref readRef(MappingNode node) {
+        return new Ref(
+                nodeYaml.scalar(nodeYaml.get(node, K8s.NAME)),
+                nodeYaml.scalar(nodeYaml.get(node, K8s.KEY)),
+                nodeYaml.isTrue(nodeYaml.get(node, K8s.OPTIONAL)));
     }
 
     private void resolveConfigMapKeyRef(String name, Ref ref, Comment entryComment, Map<String, EnvVar> merged) {
@@ -196,9 +198,9 @@ public final class EnvVarExtractor {
     }
 
     private List<Node> containers(MappingNode podSpec) {
-        List<Node> all = new ArrayList<>(NodeYaml.sequence(NodeYaml.get(podSpec, K8s.CONTAINERS)));
+        List<Node> all = new ArrayList<>(nodeYaml.sequence(nodeYaml.get(podSpec, K8s.CONTAINERS)));
         if (options.includeInitContainers()) {
-            all.addAll(NodeYaml.sequence(NodeYaml.get(podSpec, K8s.INIT_CONTAINERS)));
+            all.addAll(nodeYaml.sequence(nodeYaml.get(podSpec, K8s.INIT_CONTAINERS)));
         }
         return all;
     }
@@ -214,10 +216,10 @@ public final class EnvVarExtractor {
      * not a supported workload. All supported kinds keep their pod template at
      * {@code spec.template.spec}.
      */
-    private static MappingNode podSpecOf(K8sResource resource) {
+    private MappingNode podSpecOf(K8sResource resource) {
         if (resource.hasKind(K8s.KIND_DEPLOYMENT, K8s.KIND_STATEFUL_SET, K8s.KIND_DAEMON_SET,
                 K8s.KIND_REPLICA_SET, K8s.KIND_REPLICATION_CONTROLLER, K8s.KIND_JOB)) {
-            return NodeYaml.digMapping(resource.node(), K8s.SPEC, K8s.TEMPLATE, K8s.SPEC);
+            return nodeYaml.digMapping(resource.node(), K8s.SPEC, K8s.TEMPLATE, K8s.SPEC);
         }
         return null;
     }

@@ -5,6 +5,9 @@ import com.elerandir.k8stotfvars.model.Comment;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+
 import org.yaml.snakeyaml.comments.CommentLine;
 import org.yaml.snakeyaml.comments.CommentType;
 import org.yaml.snakeyaml.nodes.MappingNode;
@@ -18,30 +21,35 @@ import org.yaml.snakeyaml.nodes.SequenceNode;
  * comments attached to entries. Working at the node level (rather than the
  * plain {@code Map} produced by the default loader) is what lets the converter
  * preserve manifest comments.
+ *
+ * <p>Stateless, but injected as a singleton so collaborators receive it through
+ * the Dagger graph rather than reaching for static methods.
  */
-final class NodeYaml {
+@Singleton
+class NodeYaml {
 
-    private NodeYaml() {
+    @Inject
+    NodeYaml() {
     }
 
-    static MappingNode asMapping(Node node) {
+    MappingNode asMapping(Node node) {
         return node instanceof MappingNode m ? m : null;
     }
 
-    static List<Node> sequence(Node node) {
+    List<Node> sequence(Node node) {
         return node instanceof SequenceNode s ? s.getValue() : List.of();
     }
 
-    static String scalar(Node node) {
+    String scalar(Node node) {
         return node instanceof ScalarNode s ? s.getValue() : null;
     }
 
-    static boolean isTrue(Node node) {
+    boolean isTrue(Node node) {
         return "true".equals(scalar(node));
     }
 
     /** The value node for {@code key} in a mapping, or {@code null} if absent. */
-    static Node get(MappingNode mapping, String key) {
+    Node get(MappingNode mapping, String key) {
         if (mapping == null) {
             return null;
         }
@@ -53,12 +61,12 @@ final class NodeYaml {
         return null;
     }
 
-    static MappingNode getMapping(MappingNode mapping, String key) {
+    MappingNode getMapping(MappingNode mapping, String key) {
         return asMapping(get(mapping, key));
     }
 
     /** Navigate a chain of mapping keys, returning {@code null} if any link is missing. */
-    static MappingNode digMapping(MappingNode root, String... path) {
+    MappingNode digMapping(MappingNode root, String... path) {
         MappingNode current = root;
         for (String key : path) {
             if (current == null) {
@@ -69,7 +77,7 @@ final class NodeYaml {
         return current;
     }
 
-    static boolean hasKey(MappingNode mapping, String key) {
+    boolean hasKey(MappingNode mapping, String key) {
         return mapping != null && get(mapping, key) != null;
     }
 
@@ -79,7 +87,7 @@ final class NodeYaml {
      * key; the inline comment attaches to the value of the {@code name} key (the
      * scalar on the same line as the {@code - name: X} entry).
      */
-    static Comment commentForMappingEntry(MappingNode entry, String inlineKey) {
+    Comment commentForMappingEntry(MappingNode entry, String inlineKey) {
         if (entry == null || entry.getValue().isEmpty()) {
             return Comment.NONE;
         }
@@ -94,20 +102,20 @@ final class NodeYaml {
      * ConfigMap/Secret {@code data} mapping). Block attaches to the key node;
      * inline attaches to the value node.
      */
-    static Comment commentForTuple(NodeTuple tuple) {
+    Comment commentForTuple(NodeTuple tuple) {
         List<String> block = blockLines(tuple.getKeyNode());
         String inline = inlineComment(tuple.getValueNode());
         return toComment(block, inline);
     }
 
-    private static Comment toComment(List<String> block, String inline) {
+    private Comment toComment(List<String> block, String inline) {
         if (block.isEmpty() && inline == null) {
             return Comment.NONE;
         }
         return new Comment(block, inline);
     }
 
-    private static List<String> blockLines(Node node) {
+    private List<String> blockLines(Node node) {
         List<String> lines = new ArrayList<>();
         if (node == null || node.getBlockComments() == null) {
             return lines;
@@ -121,7 +129,7 @@ final class NodeYaml {
         return lines;
     }
 
-    private static String inlineComment(Node node) {
+    private String inlineComment(Node node) {
         if (node == null || node.getInLineComments() == null) {
             return null;
         }
@@ -134,7 +142,7 @@ final class NodeYaml {
     }
 
     /** SnakeYAML keeps the space after {@code #}; trim a single leading space. */
-    private static String normalize(String raw) {
+    private String normalize(String raw) {
         String value = raw == null ? "" : raw;
         if (value.startsWith(" ")) {
             value = value.substring(1);
