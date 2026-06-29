@@ -69,8 +69,8 @@ public final class EnvVarExtractor {
             }
         }
         if (workloads == 0) {
-            warn.accept("No workload resources (Deployment, StatefulSet, DaemonSet, Job, CronJob, Pod, ...) "
-                    + "were found in the input.");
+            warn.accept("No workload resources (Deployment, StatefulSet, DaemonSet, ReplicaSet, "
+                    + "ReplicationController, Job) were found in the input.");
         }
         return new ArrayList<>(merged.values());
     }
@@ -209,17 +209,15 @@ public final class EnvVarExtractor {
         return kind + "/" + name;
     }
 
-    /** Locate the {@code PodSpec} for a workload resource, or {@code null} if it is not a workload. */
+    /**
+     * Locate the {@code PodSpec} for a workload resource, or {@code null} if it is
+     * not a supported workload. All supported kinds keep their pod template at
+     * {@code spec.template.spec}.
+     */
     private static MappingNode podSpecOf(K8sResource resource) {
-        if (resource.hasKind(K8s.KIND_POD)) {
-            return NodeYaml.getMapping(resource.node(), K8s.SPEC);
-        }
         if (resource.hasKind(K8s.KIND_DEPLOYMENT, K8s.KIND_STATEFUL_SET, K8s.KIND_DAEMON_SET,
                 K8s.KIND_REPLICA_SET, K8s.KIND_REPLICATION_CONTROLLER, K8s.KIND_JOB)) {
             return NodeYaml.digMapping(resource.node(), K8s.SPEC, K8s.TEMPLATE, K8s.SPEC);
-        }
-        if (resource.hasKind(K8s.KIND_CRON_JOB)) {
-            return NodeYaml.digMapping(resource.node(), K8s.SPEC, K8s.JOB_TEMPLATE, K8s.SPEC, K8s.TEMPLATE, K8s.SPEC);
         }
         return null;
     }

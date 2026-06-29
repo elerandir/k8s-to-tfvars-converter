@@ -45,7 +45,8 @@ skipped with a warning.
 ## What it handles
 
 For every workload found in the input (`Deployment`, `StatefulSet`, `DaemonSet`,
-`ReplicaSet`, `Job`, `CronJob`, `Pod`, ...) it reads each container's env config:
+`ReplicaSet`, `ReplicationController`, `Job` — anything with a pod template at
+`spec.template.spec`) it reads each container's env config:
 
 | Source | Goes to | Behaviour |
 | --- | --- | --- |

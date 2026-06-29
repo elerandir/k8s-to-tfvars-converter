@@ -19,7 +19,6 @@ final class K8s {
     // Pod-spec navigation.
     static final String SPEC = "spec";
     static final String TEMPLATE = "template";
-    static final String JOB_TEMPLATE = "jobTemplate";
     static final String CONTAINERS = "containers";
     static final String INIT_CONTAINERS = "initContainers";
 
@@ -43,7 +42,6 @@ final class K8s {
 
     // Resource kinds.
     static final String KIND_LIST = "List";
-    static final String KIND_POD = "Pod";
     static final String KIND_CONFIG_MAP = "ConfigMap";
     static final String KIND_SECRET = "Secret";
     static final String KIND_DEPLOYMENT = "Deployment";
@@ -52,5 +50,4 @@ final class K8s {
     static final String KIND_REPLICA_SET = "ReplicaSet";
     static final String KIND_REPLICATION_CONTROLLER = "ReplicationController";
     static final String KIND_JOB = "Job";
-    static final String KIND_CRON_JOB = "CronJob";
 }

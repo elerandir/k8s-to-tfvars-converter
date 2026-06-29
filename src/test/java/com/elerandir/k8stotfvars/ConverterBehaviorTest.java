@@ -379,11 +379,14 @@ class ConverterBehaviorTest {
     @DisplayName("across workload kinds")
     class WorkloadKinds {
 
-        static Stream<Arguments> workloads() {
-            return Stream.of(
-                    Arguments.of("Deployment", """
+        // All supported kinds keep their pod template at spec.template.spec, so the
+        // same manifest shape (parameterised by kind) exercises every one of them.
+        static Stream<Arguments> supportedKinds() {
+            return Stream.of("Deployment", "StatefulSet", "DaemonSet", "ReplicaSet",
+                            "ReplicationController", "Job")
+                    .map(kind -> Arguments.of(kind, """
                             apiVersion: apps/v1
-                            kind: Deployment
+                            kind: %s
                             metadata: { name: w }
                             spec:
                               template:
@@ -393,79 +396,32 @@ class ConverterBehaviorTest {
                                       env:
                                         - name: LOG_LEVEL
                                           value: info
-                            """),
-                    Arguments.of("StatefulSet", """
-                            apiVersion: apps/v1
-                            kind: StatefulSet
-                            metadata: { name: w }
-                            spec:
-                              template:
-                                spec:
-                                  containers:
-                                    - name: app
-                                      env:
-                                        - name: LOG_LEVEL
-                                          value: info
-                            """),
-                    Arguments.of("DaemonSet", """
-                            apiVersion: apps/v1
-                            kind: DaemonSet
-                            metadata: { name: w }
-                            spec:
-                              template:
-                                spec:
-                                  containers:
-                                    - name: app
-                                      env:
-                                        - name: LOG_LEVEL
-                                          value: info
-                            """),
-                    Arguments.of("Job", """
-                            apiVersion: batch/v1
-                            kind: Job
-                            metadata: { name: w }
-                            spec:
-                              template:
-                                spec:
-                                  containers:
-                                    - name: app
-                                      env:
-                                        - name: LOG_LEVEL
-                                          value: info
-                            """),
-                    Arguments.of("CronJob", """
-                            apiVersion: batch/v1
-                            kind: CronJob
-                            metadata: { name: w }
-                            spec:
-                              schedule: "* * * * *"
-                              jobTemplate:
-                                spec:
-                                  template:
-                                    spec:
-                                      containers:
-                                        - name: app
-                                          env:
-                                            - name: LOG_LEVEL
-                                              value: info
-                            """),
-                    Arguments.of("Pod", """
-                            apiVersion: v1
-                            kind: Pod
-                            metadata: { name: w }
-                            spec:
-                              containers:
-                                - name: app
-                                  env:
-                                    - name: LOG_LEVEL
-                                      value: info
-                            """));
+                            """.formatted(kind)));
         }
 
         @ParameterizedTest(name = "extracts env vars from a {0}")
-        @MethodSource("workloads")
-        void extractsFromEachWorkloadKind(String kind, String manifest) {
+        @MethodSource("supportedKinds")
+        void extractsFromEachSupportedKind(String kind, String manifest) {
             assertEquals("info", envByName(convert(manifest)).get("LOG_LEVEL").value());
+        }
+
+        @ParameterizedTest(name = "ignores a {0}, which is not a supported workload")
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"Pod", "CronJob"})
+        void ignoresUnsupportedKinds(String kind) {
+            Converter.Result result = convert("""
+                    apiVersion: v1
+                    kind: %s
+                    metadata: { name: w }
+                    spec:
+                      containers:
+                        - name: app
+                          env:
+                            - name: LOG_LEVEL
+                              value: info
+                    """.formatted(kind));
+
+            assertTrue(result.envVars().isEmpty());
+            assertTrue(warnedAbout(result, "No workload resources"));
         }
 
         @Test
@@ -696,13 +652,15 @@ class ConverterBehaviorTest {
         @DisplayName("always emits both maps, empty when there is nothing")
         void bothMapsAlwaysPresent() {
             String tfvars = convert("""
-                    apiVersion: v1
-                    kind: Pod
+                    apiVersion: apps/v1
+                    kind: Deployment
                     metadata:
-                      name: p
+                      name: web
                     spec:
-                      containers:
-                        - name: app
+                      template:
+                        spec:
+                          containers:
+                            - name: app
                     """).tfvars();
 
             assertEquals("env_vars = {}\n\nsecrets = {}\n", tfvars);
@@ -784,16 +742,18 @@ class ConverterBehaviorTest {
         @DisplayName("includes the generated-file header only when enabled")
         void headerTogglesWithTheOption() {
             String manifest = """
-                    apiVersion: v1
-                    kind: Pod
+                    apiVersion: apps/v1
+                    kind: Deployment
                     metadata:
-                      name: p
+                      name: web
                     spec:
-                      containers:
-                        - name: app
-                          env:
-                            - name: A
-                              value: b
+                      template:
+                        spec:
+                          containers:
+                            - name: app
+                              env:
+                                - name: A
+                                  value: b
                     """;
 
             assertTrue(convertWithHeader(manifest).tfvars().startsWith("# Generated by"));
