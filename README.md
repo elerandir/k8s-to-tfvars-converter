@@ -1,5 +1,11 @@
 # k8s-to-tfvars-converter
 
+[![CI](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/scorecard.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/scorecard.yml)
+[![Secret scan](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/gitleaks.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/gitleaks.yml)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://adoptium.net/)
+
 A small Java CLI that extracts container environment variables from Kubernetes
 manifests and emits a Terraform [`.tfvars`](https://developer.hashicorp.com/terraform/language/values/variables#variable-definitions-tfvars-files)
 file with two object maps:
