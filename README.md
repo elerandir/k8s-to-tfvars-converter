@@ -75,6 +75,11 @@ Comments are captured from where each variable is defined:
 Requires JDK 21 (the build targets Java 21). Uses the Gradle wrapper, so no
 local Gradle install is needed.
 
+The project uses [Lombok](https://projectlombok.org/) (compile-time only) to
+generate constructors and utility-class scaffolding. Gradle handles it
+automatically; for IDE editing, enable Lombok support (built in to IntelliJ;
+install the plugin/agent for Eclipse).
+
 ```bash
 ./gradlew build          # compile + test
 ./gradlew installDist    # produce a runnable distribution under build/install/

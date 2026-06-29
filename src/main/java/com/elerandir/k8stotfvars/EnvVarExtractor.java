@@ -12,6 +12,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import lombok.RequiredArgsConstructor;
+
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
 
@@ -20,6 +22,7 @@ import org.yaml.snakeyaml.nodes.Node;
  * resources, resolving ConfigMap references against a {@link ResourceRegistry}
  * and recording Secret references by key (without resolving their values).
  */
+@RequiredArgsConstructor
 public final class EnvVarExtractor {
 
     /** Configuration for an extraction run. */
@@ -42,12 +45,6 @@ public final class EnvVarExtractor {
     private final ResourceRegistry registry;
     private final Options options;
     private final Consumer<String> warn;
-
-    public EnvVarExtractor(ResourceRegistry registry, Options options, Consumer<String> warn) {
-        this.registry = registry;
-        this.options = options;
-        this.warn = warn;
-    }
 
     /**
      * Extract env vars from all workload resources, merged into a single ordered

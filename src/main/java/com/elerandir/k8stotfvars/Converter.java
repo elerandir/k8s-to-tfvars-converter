@@ -10,10 +10,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * End-to-end conversion: parse manifests, index ConfigMaps/Secrets, extract and
  * resolve env vars, and render the resulting {@code .tfvars} content.
  */
+@RequiredArgsConstructor
 public final class Converter {
 
     /** The outcome of a conversion. */
@@ -25,11 +28,6 @@ public final class Converter {
 
     private final EnvVarExtractor.Options extractorOptions;
     private final boolean header;
-
-    public Converter(EnvVarExtractor.Options extractorOptions, boolean header) {
-        this.extractorOptions = extractorOptions;
-        this.header = header;
-    }
 
     public Result convertFiles(List<Path> files) throws IOException {
         return convert(ManifestParser.parseFiles(files));

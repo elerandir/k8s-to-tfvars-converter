@@ -10,6 +10,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import lombok.experimental.UtilityClass;
+
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.nodes.MappingNode;
@@ -19,13 +21,11 @@ import org.yaml.snakeyaml.nodes.Node;
  * Parses Kubernetes YAML manifests (including multi-document files) into a flat
  * list of {@link K8sResource}, preserving comments via SnakeYAML's node API.
  */
-public final class ManifestParser {
-
-    private ManifestParser() {
-    }
+@UtilityClass
+public class ManifestParser {
 
     /** Parse every YAML document found in the given files. */
-    public static List<K8sResource> parseFiles(List<Path> files) throws IOException {
+    public List<K8sResource> parseFiles(List<Path> files) throws IOException {
         List<K8sResource> resources = new ArrayList<>();
         for (Path file : files) {
             try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
@@ -36,7 +36,7 @@ public final class ManifestParser {
     }
 
     /** Parse every YAML document available from the given reader. */
-    public static List<K8sResource> parse(Reader reader) {
+    public List<K8sResource> parse(Reader reader) {
         List<K8sResource> resources = new ArrayList<>();
         for (Node document : newYaml().composeAll(reader)) {
             collect(document, resources);
@@ -48,7 +48,7 @@ public final class ManifestParser {
      * A document may itself be a {@code kind: List} wrapper; its items are
      * flattened so that list manifests are handled.
      */
-    private static void collect(Node document, List<K8sResource> out) {
+    private void collect(Node document, List<K8sResource> out) {
         MappingNode mapping = NodeYaml.asMapping(document);
         if (mapping == null) {
             return; // empty document (e.g. trailing "---") or non-mapping scalar
@@ -64,7 +64,7 @@ public final class ManifestParser {
         out.add(new K8sResource(kind, name, mapping));
     }
 
-    private static Yaml newYaml() {
+    private Yaml newYaml() {
         LoaderOptions options = new LoaderOptions();
         options.setAllowDuplicateKeys(false);
         options.setProcessComments(true);

@@ -7,6 +7,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * Renders extracted env vars as a Terraform {@code .tfvars} file containing two
  * object maps:
@@ -20,15 +22,12 @@ import java.util.function.Function;
  * <p>Map keys keep the original variable name verbatim. Comments captured from
  * the source manifest are emitted as Terraform comments next to each entry.
  */
+@RequiredArgsConstructor
 public final class TfvarsWriter {
 
     private static final String INDENT = "  ";
 
     private final boolean header;
-
-    public TfvarsWriter(boolean header) {
-        this.header = header;
-    }
 
     public String render(List<EnvVar> envVars) {
         List<EnvVar> sorted = envVars.stream()
