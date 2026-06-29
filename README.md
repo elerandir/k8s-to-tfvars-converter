@@ -5,6 +5,8 @@
 [![OpenSSF Scorecard](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/scorecard.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/scorecard.yml)
 [![Secret scan](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/gitleaks.yml/badge.svg?branch=main)](https://github.com/elerandir/k8s-to-tfvars-converter/actions/workflows/gitleaks.yml)
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://adoptium.net/)
+[![Built with Gradle](https://img.shields.io/badge/Built%20with-Gradle-02303A.svg?logo=gradle)](https://gradle.org)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 A small Java CLI that extracts container environment variables from Kubernetes
 manifests and emits a Terraform [`.tfvars`](https://developer.hashicorp.com/terraform/language/values/variables#variable-definitions-tfvars-files)
@@ -132,3 +134,9 @@ checksums and commit the result:
 ```bash
 ./gradlew --write-verification-metadata sha256 build
 ```
+
+## License
+
+Copyright 2026 Sebastian Sobiech
+
+Licensed under the Apache License, Version 2.0 — see [LICENSE](LICENSE).
