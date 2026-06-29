@@ -29,14 +29,14 @@ public final class ManifestParser {
         List<K8sResource> resources = new ArrayList<>();
         for (Path file : files) {
             try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-                resources.addAll(parse(reader, file.toString()));
+                resources.addAll(parse(reader));
             }
         }
         return resources;
     }
 
     /** Parse every YAML document available from the given reader. */
-    public static List<K8sResource> parse(Reader reader, String sourceLabel) {
+    public static List<K8sResource> parse(Reader reader) {
         List<K8sResource> resources = new ArrayList<>();
         for (Node document : newYaml().composeAll(reader)) {
             collect(document, resources);
@@ -53,14 +53,14 @@ public final class ManifestParser {
         if (mapping == null) {
             return; // empty document (e.g. trailing "---") or non-mapping scalar
         }
-        String kind = NodeYaml.scalar(NodeYaml.get(mapping, "kind"));
-        if ("List".equals(kind)) {
-            for (Node item : NodeYaml.sequence(NodeYaml.get(mapping, "items"))) {
+        String kind = NodeYaml.scalar(NodeYaml.get(mapping, K8s.KIND));
+        if (K8s.KIND_LIST.equals(kind)) {
+            for (Node item : NodeYaml.sequence(NodeYaml.get(mapping, K8s.ITEMS))) {
                 collect(item, out);
             }
             return;
         }
-        String name = NodeYaml.scalar(NodeYaml.get(NodeYaml.getMapping(mapping, "metadata"), "name"));
+        String name = NodeYaml.scalar(NodeYaml.get(NodeYaml.getMapping(mapping, K8s.METADATA), K8s.NAME));
         out.add(new K8sResource(kind, name, mapping));
     }
 

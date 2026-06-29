@@ -37,9 +37,9 @@ public final class ResourceRegistry {
             if (resource.name() == null) {
                 continue;
             }
-            if (resource.hasKind("ConfigMap")) {
+            if (resource.hasKind(K8s.KIND_CONFIG_MAP)) {
                 registry.configMaps.put(resource.name(), configMapData(resource));
-            } else if (resource.hasKind("Secret")) {
+            } else if (resource.hasKind(K8s.KIND_SECRET)) {
                 registry.secrets.put(resource.name(), secretKeys(resource));
             }
         }
@@ -66,7 +66,7 @@ public final class ResourceRegistry {
 
     private static Map<String, ConfigEntry> configMapData(K8sResource resource) {
         Map<String, ConfigEntry> data = new LinkedHashMap<>();
-        MappingNode dataNode = NodeYaml.getMapping(resource.node(), "data");
+        MappingNode dataNode = NodeYaml.getMapping(resource.node(), K8s.DATA);
         if (dataNode != null) {
             for (NodeTuple tuple : dataNode.getValue()) {
                 if (tuple.getKeyNode() instanceof ScalarNode key) {
@@ -82,8 +82,8 @@ public final class ResourceRegistry {
     private static Map<String, Comment> secretKeys(K8sResource resource) {
         Map<String, Comment> keys = new LinkedHashMap<>();
         // Both `data` and `stringData` contribute key names; values are ignored.
-        collectKeys(NodeYaml.getMapping(resource.node(), "data"), keys);
-        collectKeys(NodeYaml.getMapping(resource.node(), "stringData"), keys);
+        collectKeys(NodeYaml.getMapping(resource.node(), K8s.DATA), keys);
+        collectKeys(NodeYaml.getMapping(resource.node(), K8s.STRING_DATA), keys);
         return keys;
     }
 
